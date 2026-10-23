@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>APIELE-TEST · 数据库测试</title>
+  <style>
+    :root{color-scheme:light;font-family:"Segoe UI","Microsoft YaHei",sans-serif;color:#172b35;background:#f4f7f8}*{box-sizing:border-box}body{margin:0}main{max-width:1040px;margin:0 auto;padding:44px 24px 64px}header{display:flex;align-items:center;gap:12px;margin-bottom:44px;font-size:13px;font-weight:700;letter-spacing:2px}.mark{display:grid;place-items:center;width:34px;height:34px;color:white;background:#117d70;border-radius:10px;letter-spacing:0}.eyebrow{font-size:12px;color:#117d70;letter-spacing:2px;font-weight:700}h1{margin:10px 0 12px;font-size:clamp(28px,4vw,40px);letter-spacing:-1px;font-weight:650}.intro{margin:0 0 28px;color:#667983;line-height:1.8;font-size:15px}.card{background:white;border:1px solid #dfe7eb;border-radius:16px;padding:26px;margin-bottom:22px}.heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:22px}h2{font-size:17px;margin:0;font-weight:650}.badge{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:50px;background:#edf2f5;color:#60727d;font-size:12px}.dot{width:7px;height:7px;background:currentColor;border-radius:50%}.badge.ok{color:#117d70;background:#e8f6f1}.badge.bad{color:#b64a31;background:#fff0e9}.facts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px;padding:20px 0 4px;border-top:1px solid #edf1f3}dt{color:#7b8a94;font-size:12px;margin-bottom:9px}dd{margin:0;font-size:14px;overflow-wrap:anywhere}dl{margin:0}button{border:0;border-radius:8px;padding:10px 16px;font:inherit;font-size:13px;cursor:pointer;background:#117d70;color:white}button:hover{background:#0b675c}button:disabled{opacity:.55;cursor:wait}button.secondary{background:#f0f4f6;color:#3e5663}button.secondary:hover{background:#e5ecef}.actions{display:flex;gap:10px;align-items:center}label{display:block;font-size:14px;margin-bottom:10px}textarea{width:100%;min-height:102px;resize:vertical;border:1px solid #d7e0e5;border-radius:9px;padding:13px;font:inherit;font-size:14px;line-height:1.6;color:inherit}textarea:focus{outline:2px solid #b4ded5;border-color:#117d70}.form-bottom{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:12px}.muted{color:#7b8a94;font-size:12px;line-height:1.6}#feedback{padding:12px 15px;border-radius:8px;margin-bottom:20px;font-size:13px;line-height:1.7;overflow-wrap:anywhere}#feedback:empty{display:none}#feedback.error{background:#fff0e9;color:#a03d27}#feedback.success{background:#e8f6f1;color:#117d70}.table-wrap{overflow:auto;margin-top:24px;border-top:1px solid #edf1f3}table{width:100%;border-collapse:collapse;text-align:left;font-size:13px}th{padding:15px 12px;color:#7b8a94;font-weight:500;border-bottom:1px solid #edf1f3}td{padding:16px 12px;border-bottom:1px solid #edf1f3;vertical-align:top}td.content{white-space:pre-wrap;overflow-wrap:anywhere;min-width:160px;max-width:460px;line-height:1.7}td.time{white-space:nowrap;color:#7b8a94}.empty{text-align:center;padding:36px 12px;color:#7b8a94}footer{text-align:center;margin-top:26px}@media(max-width:600px){main{padding:24px 16px}header{margin-bottom:30px}.card{padding:20px}.facts{grid-template-columns:1fr;gap:18px}.heading{flex-wrap:wrap}.form-bottom{align-items:flex-start}}
+  </style>
+</head>
+<body>
+<main>
+  <header><span class="mark">A</span> APIELE-TEST <span class="muted" style="letter-spacing:0;font-weight:400">/ 开发测试</span></header>
+  <div class="eyebrow">DATABASE PLAYGROUND</div>
+  <h1>把第一条数据，写进数据库。</h1>
+  <p class="intro">检查服务器 MySQL 连接，保存一条记录，再确认它能被读取。</p>
+  <div id="feedback" role="status" aria-live="polite"></div>
+  <section class="card" aria-labelledby="db-title">
+    <div class="heading"><h2 id="db-title">数据库连接</h2><div class="actions"><span id="status" class="badge"><span class="dot"></span><span id="status-text">等待检查</span></span><button id="check" class="secondary" type="button">检查连接</button></div></div>
+    <div class="facts"><dl><dt>数据库</dt><dd id="db-name">—</dd></dl><dl><dt>MySQL 版本</dt><dd id="db-version">—</dd></dl><dl><dt>最近检查</dt><dd id="checked-at">—</dd></dl></div>
+  </section>
+  <section class="card" aria-labelledby="notes-title">
+    <div class="heading"><h2 id="notes-title">读写测试</h2><button id="refresh" class="secondary" type="button">刷新记录</button></div>
+    <form id="note-form"><label for="content">测试内容</label><textarea id="content" placeholder="例如：我已成功连接 APIELE-TEST 的开发数据库。" maxlength="500" required></textarea><div class="form-bottom"><span class="muted">仅写入 apiele_test_notes 测试表 · 最多 500 字</span><button id="save" type="submit">保存到数据库</button></div></form>
+    <div class="table-wrap"><table><thead><tr><th scope="col">ID</th><th scope="col">内容</th><th scope="col">创建时间（数据库时区）</th></tr></thead><tbody id="notes"><tr><td colspan="3" class="empty">连接成功后，在这里查看最近 50 条记录。</td></tr></tbody></table></div>
+  </section>
+  <footer class="muted">APIELE-TEST · 本地开发测试页</footer>
+</main>
+<script>
+  const el = id => document.getElementById(id);
+  function feedback(message, error = false) {
+    el('feedback').textContent = message;
+    el('feedback').className = error ? 'error' : 'success';
+  }
+  async function api(path, options = {}) {
+    const response = await fetch(path, {...options, signal: AbortSignal.timeout(20000)});
+    const data = await response.json();
+    if (!response.ok) {
+      const message = typeof data.detail === 'string' ? data.detail : '内容不能为空，且不能超过 500 字。';
+      throw new Error(message + (data.error_id ? ` 异常编号：${data.error_id}` : ''));
+    }
+    return data;
+  }
+  function renderNotes(items) {
+    const body = el('notes'); body.replaceChildren();
+    if (!items.length) {
+      const cell = document.createElement('td'); cell.colSpan = 3; cell.className = 'empty'; cell.textContent = '还没有记录，试着保存第一条。';
+      const row = document.createElement('tr'); row.append(cell); body.append(row); return;
+    }
+    for (const item of items) {
+      const row = document.createElement('tr');
+      for (const [value, className] of [[item.id, ''], [item.content, 'content'], [item.created_at, 'time']]) {
+        const cell = document.createElement('td'); cell.textContent = value; cell.className = className; row.append(cell);
+      }
+      body.append(row);
+    }
+  }
+  async function loadNotes() { renderNotes((await api('/api/notes')).items); }
+  async function checkConnection() {
+    el('check').disabled = true; el('status').className = 'badge'; el('status-text').textContent = '检查中…';
+    try {
+      const data = await api('/api/database');
+      el('db-name').textContent = data.database_name; el('db-version').textContent = data.version;
+      el('status').className = 'badge ok'; el('status-text').textContent = '已连接';
+      feedback('数据库连接成功。'); await loadNotes();
+    } catch (error) {
+      el('status').className = 'badge bad'; el('status-text').textContent = '检查未通过';
+      el('db-name').textContent = '—'; el('db-version').textContent = '—'; feedback(error.message, true);
+    } finally {
+      el('checked-at').textContent = new Date().toLocaleTimeString('zh-CN', {hour12:false}); el('check').disabled = false;
+    }
+  }
+  el('check').addEventListener('click', checkConnection);
+  el('refresh').addEventListener('click', async () => {
+    el('refresh').disabled = true;
+    try { await loadNotes(); feedback('记录已刷新。'); } catch (error) { feedback(error.message, true); }
+    finally { el('refresh').disabled = false; }
+  });
+  el('note-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const content = el('content').value.trim();
+    if (!content) { feedback('请先输入测试内容。', true); return; }
+    el('save').disabled = true; let saved = false;
+    try {
+      const note = await api('/api/notes', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content})});
+      saved = true; el('content').value = '';
+      await loadNotes(); feedback(`记录 #${note.id} 已保存，并已从数据库重新读取。`);
+    } catch (error) { feedback((saved ? '记录已保存，但刷新列表失败，请点击“刷新记录”，无需重复保存。 ' : '') + error.message, true); }
+    finally { el('save').disabled = false; }
+  });
+  checkConnection();
+</script>
+</body>
+</html>
