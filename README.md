@@ -70,13 +70,15 @@
 
 ## 部署到服务器
 
-服务器需要已启动 Docker 和 MySQL（服务器本机端口 3307）。本地 `.env` 中填写服务器 SSH 信息和数据库密码后，在本机项目目录执行：
+服务器需要已启动 Docker 和 MySQL（服务器本机端口 3307）。本地 `.env` 中填写服务器 SSH 信息、`SSH_PASSWORD`（服务器登录密码）和 `DB_PASSWORD`（数据库密码）。在本机项目目录执行：
 
 ```powershell
 python deploy.py
 ```
 
-按提示输入服务器登录密码。脚本通过一条 SSH 连接上传代码及数据库配置，随后构建、启动 Docker 容器并检查数据库连接。不需要先推送到 GitHub，也不需要复制粘贴数据库密码到服务器命令中。
+填写 `SSH_PASSWORD` 后，部署自动读取本地 `.env`，无需在终端输入密码；留空则继续使用交互式 SSH 或已有密钥。SSH 密码只用于登录，不写入上传包或服务器配置。自动登录使用 Windows 自带 OpenSSH 和 .NET Framework，无需安装新的 Python 依赖；只接受本机 `.ssh/known_hosts` 中已确认的服务器指纹。
+
+脚本通过一条 SSH 连接上传代码及数据库配置，随后构建、启动 Docker 容器并检查数据库连接。不需要先推送到 GitHub。`SSH_PASSWORD` 只供部署使用，本地 `start-tunnel.ps1` 仍按 SSH 提示登录。
 
 - 网站地址：`http://服务器公网IP:8010/`，按当前测试要求不设访问密码。
 - 云平台安全组需允许 TCP 8010 入站；MySQL 的 3307 端口继续仅监听服务器本机。
