@@ -16,18 +16,21 @@ if command -v ss >/dev/null && ss -H -ltn 'sport = :8010' | grep -q .; then
 fi
 
 docker build -t apiele-test-web:latest .
+echo '[服务器步骤完成] Docker 镜像构建成功。'
 if docker container inspect apiele-test-web >/dev/null 2>&1; then
     docker rm -f apiele-test-web >/dev/null
 fi
 
 # Host networking lets the app reach the existing MySQL mapping at 127.0.0.1:3307.
 docker run -d --name apiele-test-web \
+    --label "org.opencontainers.image.revision=$(cat .release-revision)" \
     --restart unless-stopped \
     --network host \
     --env-file .env.server \
     --mount "type=bind,src=$PWD/logs,dst=/app/logs" \
     --log-opt max-size=10m --log-opt max-file=3 \
     apiele-test-web:latest >/dev/null
+echo '[服务器步骤完成] 网站容器已启动，正在检查网站和数据库。'
 
 docker exec -i apiele-test-web python - <<'PY'
 import json
@@ -52,3 +55,4 @@ for label in ('initial', 'reused_connection'):
     print(json.dumps({'check': label, 'status': data['status'], 'ms': round((time.perf_counter()-start)*1000)}))
 print('DEPLOYMENT_OK: web and MySQL are connected on the server.')
 PY
+echo "[服务器步骤完成] 已发布版本 $(cat .release-revision)"

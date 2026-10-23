@@ -2,6 +2,24 @@
 
 一个用于验证开发流程的 MySQL 测试页：检查连接、添加测试记录、读取最近 50 条记录。
 
+协作与发布统一遵守 [AGENTS.md](AGENTS.md) 和 [流程说明](docs/WORKFLOW.md)。Codex 修改代码前执行 `python workflow.py prepare`；只有明确说“发布／上线”后才提交、推送和部署。项目背景、操作方法和脱敏会话记录一并随代码共享，接手先读 [项目上下文](docs/PROJECT_CONTEXT.md)。
+
+## 让 Agent 快速接手
+
+协作者克隆仓库后，在 Codex 中打开仓库目录，可以直接发送：
+
+> 请先读取 AGENTS.md、README.md、docs/PROJECT_CONTEXT.md、docs/WORKFLOW.md 和 docs/OPERATIONS.md，了解已实现功能、运行方式和遗留问题。修改前检查远端并汇报拉取 Diff，按本次需求开发和验证，更新会话记录。只有我明确要求上传仓库或发布服务器时才执行对应动作。
+
+| 位置 | 用途 |
+|---|---|
+| `app/main.py`、`app/static/index.html` | 后端接口、数据库连接和测试页面 |
+| `workflow.py`、`deploy.py`、`deploy.sh` | 开发同步、发布控制、服务器部署 |
+| `start.ps1`、`start-tunnel.ps1`、`.env.example` | 本地启动、SSH 数据库隧道和空配置模板 |
+| `docs/` | 项目背景、操作说明、流程和脱敏对话记录 |
+| `tests/test_workflow.py` | 使用临时 Git 仓库验证协作流程，不操作线上数据库 |
+
+安装 `requirements.txt` 后，执行 `python -m unittest discover -s tests -v` 检查协作流程。真实 SSH/数据库凭据需另行授权提供给协作者，各自写入本机 `.env`。目前业务数据整合和 AI 提取功能尚未开发，不把测试页当成完整业务系统。
+
 ## 本地运行（Windows）
 
 需要 Python 3.12+、Git 和 Windows 自带的 OpenSSH 客户端。前端随 FastAPI 一起提供，不需要 Node.js 或前端构建。
@@ -73,18 +91,18 @@
 服务器需要已启动 Docker 和 MySQL（服务器本机端口 3307）。本地 `.env` 中填写服务器 SSH 信息、`SSH_PASSWORD`（服务器登录密码）和 `DB_PASSWORD`（数据库密码）。在本机项目目录执行：
 
 ```powershell
-python deploy.py
+python workflow.py release --message "说明本次修改" --files app/main.py
 ```
 
 填写 `SSH_PASSWORD` 后，部署自动读取本地 `.env`，无需在终端输入密码；留空则继续使用交互式 SSH 或已有密钥。SSH 密码只用于登录，不写入上传包或服务器配置。自动登录使用 Windows 自带 OpenSSH 和 .NET Framework，无需安装新的 Python 依赖；只接受本机 `.ssh/known_hosts` 中已确认的服务器指纹。
 
-脚本通过一条 SSH 连接上传代码及数据库配置，随后构建、启动 Docker 容器并检查数据库连接。不需要先推送到 GitHub。`SSH_PASSWORD` 只供部署使用，本地 `start-tunnel.ps1` 仍按 SSH 提示登录。
+上述 `--files` 是示例，正式发布需包含本次审查过的全部项目和记录文件。脚本先检查远端、提交指定文件并推送 GitHub，再从同一个 Git 提交打包，经一条 SSH 连接上传代码及数据库配置，构建、启动 Docker 容器并检查数据库连接。GitHub 推送失败就停止，避免仓库代码和线上版本不一致。`SSH_PASSWORD` 只供部署使用，本地 `start-tunnel.ps1` 仍按 SSH 提示登录。
 
 - 网站地址：`http://服务器公网IP:8010/`，按当前测试要求不设访问密码。
 - 云平台安全组需允许 TCP 8010 入站；MySQL 的 3307 端口继续仅监听服务器本机。
 - 项目目录：`/opt/apiele-test`，容器：`apiele-test-web`，日志目录：`/opt/apiele-test/logs`。
 - 查看启动日志：`docker logs --tail 60 apiele-test-web`。
 - 停止网站：`docker stop apiele-test-web`；重新启动：`docker start apiele-test-web`。
-- 更新：修改本地代码后再次执行 `python deploy.py`。会短暂重启网站；不删除 MySQL 容器或数据库数据卷。
+- 更新：开发和验证完成、收到明确发布指令后执行 `workflow.py release`。会短暂重启网站；不删除 MySQL 容器或数据库数据卷。
 
 部署使用 Linux host 网络，因此后端直接访问同机 `127.0.0.1:3307`，不再经过本地 SSH 数据库隧道。关闭电脑和本地隧道不会停止服务器上的网站。
