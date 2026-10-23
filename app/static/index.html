@@ -28,6 +28,7 @@
 </main>
 <script>
   const el = id => document.getElementById(id);
+  let displayedNotes = [];
   function feedback(message, error = false) {
     el('feedback').textContent = message;
     el('feedback').className = error ? 'error' : 'success';
@@ -42,6 +43,7 @@
     return data;
   }
   function renderNotes(items) {
+    displayedNotes = items;
     const body = el('notes'); body.replaceChildren();
     if (!items.length) {
       const cell = document.createElement('td'); cell.colSpan = 3; cell.className = 'empty'; cell.textContent = '还没有记录，试着保存第一条。';
@@ -59,10 +61,10 @@
   async function checkConnection() {
     el('check').disabled = true; el('status').className = 'badge'; el('status-text').textContent = '检查中…';
     try {
-      const data = await api('/api/database');
+      const data = await api('/api/bootstrap');
       el('db-name').textContent = data.database_name; el('db-version').textContent = data.version;
       el('status').className = 'badge ok'; el('status-text').textContent = '已连接';
-      feedback('数据库连接成功。'); await loadNotes();
+      renderNotes(data.items); feedback('数据库连接成功。');
     } catch (error) {
       el('status').className = 'badge bad'; el('status-text').textContent = '检查未通过';
       el('db-name').textContent = '—'; el('db-version').textContent = '—'; feedback(error.message, true);
@@ -72,21 +74,22 @@
   }
   el('check').addEventListener('click', checkConnection);
   el('refresh').addEventListener('click', async () => {
-    el('refresh').disabled = true;
+    el('refresh').disabled = true; el('refresh').textContent = '刷新中…';
     try { await loadNotes(); feedback('记录已刷新。'); } catch (error) { feedback(error.message, true); }
-    finally { el('refresh').disabled = false; }
+    finally { el('refresh').disabled = false; el('refresh').textContent = '刷新记录'; }
   });
   el('note-form').addEventListener('submit', async event => {
     event.preventDefault();
     const content = el('content').value.trim();
     if (!content) { feedback('请先输入测试内容。', true); return; }
-    el('save').disabled = true; let saved = false;
+    el('save').disabled = true; el('save').textContent = '保存中…'; let saved = false;
     try {
       const note = await api('/api/notes', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content})});
       saved = true; el('content').value = '';
-      await loadNotes(); feedback(`记录 #${note.id} 已保存，并已从数据库重新读取。`);
+      renderNotes([note, ...displayedNotes.filter(item => item.id !== note.id)].slice(0, 50));
+      feedback(`记录 #${note.id} 已保存，并已从数据库重新读取。`);
     } catch (error) { feedback((saved ? '记录已保存，但刷新列表失败，请点击“刷新记录”，无需重复保存。 ' : '') + error.message, true); }
-    finally { el('save').disabled = false; }
+    finally { el('save').disabled = false; el('save').textContent = '保存到数据库'; }
   });
   checkConnection();
 </script>

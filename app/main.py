@@ -1,9 +1,11 @@
-from contextlib import closing
+from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import logging
 import os
+from queue import Empty, Full, LifoQueue
+from threading import Lock
 import uuid
 
 from dotenv import load_dotenv
@@ -24,7 +26,26 @@ if not logger.handlers:
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
     logger.addHandler(handler)
 
-app = FastAPI(title="APIELE-TEST 数据库测试", docs_url=None, redoc_url=None)
+_connections = LifoQueue(maxsize=4)
+_table_lock = Lock()
+_table_ready = False
+
+
+def close_connections():
+    while True:
+        try:
+            _connections.get_nowait().close()
+        except Empty:
+            return
+
+
+@asynccontextmanager
+async def lifespan(app):
+    yield
+    close_connections()
+
+
+app = FastAPI(title="APIELE-TEST 数据库测试", docs_url=None, redoc_url=None, lifespan=lifespan)
 
 
 def connect():
@@ -43,12 +64,43 @@ def connect():
     )
 
 
+@contextmanager
+def database_connection():
+    try:
+        connection = _connections.get_nowait()
+    except Empty:
+        connection = connect()
+    else:
+        try:
+            connection.ping(reconnect=False)
+        except pymysql.MySQLError:
+            connection.close()
+            connection = connect()
+    try:
+        yield connection
+    except BaseException:
+        # Discard failed connections; never automatically replay a write.
+        connection.close()
+        raise
+    else:
+        try:
+            _connections.put_nowait(connection)
+        except Full:
+            connection.close()
+
+
 def ensure_table(cursor):
-    cursor.execute("""CREATE TABLE IF NOT EXISTS apiele_test_notes (
-        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        content VARCHAR(500) NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""")
+    global _table_ready
+    if _table_ready:
+        return
+    with _table_lock:
+        if not _table_ready:
+            cursor.execute("""CREATE TABLE IF NOT EXISTS apiele_test_notes (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                content VARCHAR(500) NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""")
+            _table_ready = True
 
 
 @app.middleware("http")
@@ -108,7 +160,7 @@ def health():
 
 @app.get("/api/database")
 def database():
-    with closing(connect()) as connection, connection.cursor() as cursor:
+    with database_connection() as connection, connection.cursor() as cursor:
         cursor.execute("SELECT VERSION() AS version, DATABASE() AS database_name")
         info = cursor.fetchone()
     return {"status": "connected", **info}
@@ -119,18 +171,32 @@ def serialize_note(row):
             if isinstance(row["created_at"], datetime) else row["created_at"]}
 
 
+def read_notes(cursor):
+    cursor.execute("SELECT id, content, created_at FROM apiele_test_notes ORDER BY id DESC LIMIT 50")
+    return [serialize_note(row) for row in cursor.fetchall()]
+
+
+@app.get("/api/bootstrap")
+def bootstrap():
+    with database_connection() as connection, connection.cursor() as cursor:
+        ensure_table(cursor)
+        cursor.execute("SELECT VERSION() AS version, DATABASE() AS database_name")
+        info = cursor.fetchone()
+        items = read_notes(cursor)
+    return {"status": "connected", **info, "items": items}
+
+
 @app.get("/api/notes")
 def list_notes():
-    with closing(connect()) as connection, connection.cursor() as cursor:
+    with database_connection() as connection, connection.cursor() as cursor:
         ensure_table(cursor)
-        cursor.execute("SELECT id, content, created_at FROM apiele_test_notes ORDER BY id DESC LIMIT 50")
-        rows = cursor.fetchall()
-    return {"items": [serialize_note(row) for row in rows]}
+        items = read_notes(cursor)
+    return {"items": items}
 
 
 @app.post("/api/notes", status_code=201)
 def add_note(note: NoteInput):
-    with closing(connect()) as connection, connection.cursor() as cursor:
+    with database_connection() as connection, connection.cursor() as cursor:
         ensure_table(cursor)
         cursor.execute("INSERT INTO apiele_test_notes (content) VALUES (%s)", (note.content,))
         note_id = cursor.lastrowid
